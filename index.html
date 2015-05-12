@@ -10,17 +10,26 @@
   })
   alldocs.forEach(function(d){index.add(d);});
 </script>
-<input type="text" size="30" id="in" onchange="go();"/>
+<input type="text" size="30" id="in" onkeyup="go();"/>
 <pre id="out"></pre>
 <script>
   var o = document.querySelector("#out");
   var l = document.querySelector("#loading");
   l.parentNode.removeChild(l);
+  var processing = false;
+  var q = [];
   function go(){
     o.innerHTML = "Searching...";
-    var q = document.querySelector("#in").value;
-    var r = index.search(q);
-    o.innerHTML = JSON.stringify(r, null, 2);
+    var i = document.querySelector("#in").value;
+    q.unshift(i);
+    setTimeout(function(){
+      if (q.length === 0) return;
+      var t0 = (new Date()).getTime();
+      var r = index.search(q[0]);
+      var t1 = (new Date()).getTime();
+      o.innerHTML = (t1 - t0) + "ms.\n" + JSON.stringify(r, null, 2);
+      q = [];
+    });
   };
 </script>
 </html>
