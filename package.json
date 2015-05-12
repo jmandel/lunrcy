@@ -1,0 +1,12 @@
+{
+  "name": "fhir-search-spike",
+  "version": "0.0.1",
+  "description": "Try client-side FHIR search",
+  "author": "Josh Mandel <joshua.mandel@childrens.harvard.edu>",
+  "scripts":{
+   "start": "node ./create-index.js"
+  },
+  "dependencies": {
+    "lunr": "*"
+  }
+}
