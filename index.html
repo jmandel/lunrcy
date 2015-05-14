@@ -1,17 +1,52 @@
 <html>
-  <head><style>#out {font-family: monospace; padding: 1em;}</style></head>
+  <head><style>#out {padding: 1em;}</style></head>
   <div id="loading">Loading...</div>
-  <script src="lunr.js"></script>
-  <script src="alldocs.js"></script>
+  <script src="alldocs-idx.js"></script>
+  <script src="basetext.js"></script>
   <script>
-  var index = lunr(function () {
-    this.field('title', {boost: 10})
-    this.field('text')
-    this.ref('url')
-  })
-  alldocs.forEach(function(d){index.add(d);});
-</script>
-<input AUTOFOCUS type="text" size="30" id="in" onchange="go();"/>
+    var idx = cache['idx'];
+    var docnames = cache['docnames'];
+    function highlight(doc, words){
+      var starts = [];
+      words.forEach(function(word){
+        starts.push(doc.indexOf(word));
+      });
+      starts.sort();
+      doc = doc.slice(starts[0], starts[0] + 400);
+      words.forEach(function(word){
+        doc = doc.replace(RegExp(word, "g"), "<b>"+word+"</b>");
+      });
+      return doc;
+    };
+    function search(q){
+      var matches = null;
+      var failed = false;
+      var qs = q.split(/\W+/).filter(function(x){return x;});
+      qs.forEach(function(w){
+        var docs = idx[w];
+        if (failed) return;
+        if (!docs) return (failed = true);
+        if (!matches) return (matches = JSON.parse(JSON.stringify(docs)));
+        Object.keys(matches).forEach(function(d){
+          if (!docs[d]) {
+            delete matches[d];
+          } else {
+            matches[d] += docs[d];
+          }
+        });
+      });
+      if (failed || !matches) return [];
+      return Object.keys(matches).sort(function(a, b){
+        return matches[b] - matches[a];
+      }).slice(0,20).map(function(d){
+        return {
+          'url': docnames[d],
+          'text': highlight(docs[d], qs)
+        }
+      });
+    }
+  </script>
+<input AUTOFOCUS type="text" size="30" id="in" onkeyup="go();"/>
 <div id="out">Press enter to search.</div>
 <script>
   var o = document.querySelector("#out");
@@ -23,18 +58,15 @@
     o.innerHTML = "Searching...";
     var i = document.querySelector("#in").value;
     q.unshift(i);
-    var lines = "";
     setTimeout(function(){
       if (q.length === 0) return;
       var t0 = (new Date()).getTime();
-      var r = index.search(q[0]);
+      var r = search(q[0]);
       var t1 = (new Date()).getTime();
-      lines += (t1 - t0) + "ms.\n<br>" 
-      JSON.stringify(r, null, 2).split(/\n/).forEach(function(l){
-        l = l.replace(/^ +/g, "&nbsp;");
-        m = l.match(/.+"(.*html.*)"/);
-        if (m) {l = l.replace(m[1], "<a target='_blank' href='http://hl7-fhir.github.io/"+m[1]+"'>"+m[1]+"</a>");}
-        lines += (l + "<br>");
+      var lines = "";
+      lines += (t1 - t0) + "ms.\n<br>" ;
+      r.forEach(function(hit){
+        lines += "<a target='_blank' href='https://hl7-fhir.github.io/"+hit.url+"'>"+hit.url+"</a>: " + hit.text + " <br/><br/>\n";
       });
       o.innerHTML = lines;
       q = [];
