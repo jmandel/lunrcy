@@ -1,11 +1,11 @@
 <html>
   <head><style>#out {padding: 1em;}</style></head>
   <div id="loading">Loading...</div>
-  <script src="alldocs-idx.js"></script>
+  <script src="idxmap.js"></script>
   <script src="basetext.js"></script>
   <script>
-    var idx = cache['idx'];
-    var docnames = cache['docnames'];
+    var idx = idxmap['idx'];
+    var docnames = idxmap['docnames'];
     function highlight(doc, words){
       var starts = [];
       words.forEach(function(word){
@@ -18,12 +18,20 @@
       });
       return doc;
     };
+    function lookup(w) {
+      var start = idx;
+      for (var i=0; i<w.length; i++){
+        if (!start[w[i]]) return false;
+        start = start[w[i]];
+      }
+      return start['$'];
+    }
     function search(q){
       var matches = null;
       var failed = false;
-      var qs = q.split(/\W+/).filter(function(x){return x;});
+      var qs = q.split(/\W+/).filter(function(x){return x && x.length > 2;});
       qs.forEach(function(w){
-        var docs = idx[w];
+        var docs = lookup(w);
         if (failed) return;
         if (!docs) return (failed = true);
         if (!matches) return (matches = JSON.parse(JSON.stringify(docs)));
@@ -35,15 +43,18 @@
           }
         });
       });
-      if (failed || !matches) return [];
-      return Object.keys(matches).sort(function(a, b){
+
+      if (failed || !matches) return {total: 0, matches: []};
+      matches = Object.keys(matches).sort(function(a, b){
         return matches[b] - matches[a];
-      }).slice(0,20).map(function(d){
+      });
+      return {total: matches.length, matches:
+        matches.slice(0,100).map(function(d){
         return {
           'url': docnames[d],
-          'text': highlight(docs[d], qs)
+          'text': highlight(htmlEncode(docs[d]), qs)
         }
-      });
+    })};
     }
   </script>
 <input AUTOFOCUS type="text" size="30" id="in" onkeyup="go();"/>
@@ -62,15 +73,21 @@
       if (q.length === 0) return;
       var t0 = (new Date()).getTime();
       var r = search(q[0]);
-      var t1 = (new Date()).getTime();
       var lines = "";
-      lines += (t1 - t0) + "ms.\n<br>" ;
-      r.forEach(function(hit){
-        lines += "<a target='_blank' href='https://hl7-fhir.github.io/"+hit.url+"'>"+hit.url+"</a>: " + hit.text + " <br/><br/>\n";
+      r.matches.forEach(function(hit){
+        lines += "<a target='_blank' href='https://hl7-fhir.github.io/"+hit.url+"'>"+
+          hit.url+"</a>: " + 
+          hit.text +
+          " <br/><br/>\n";
       });
-      o.innerHTML = lines;
+      var t1 = (new Date()).getTime();
+      o.innerHTML = (t1 - t0) + "ms to find "+r.total+" results.\n<br/><br/>" + lines;
       q = [];
     });
   };
+
+  function htmlEncode(s){
+    return s.replace(/</g, "&lt;");
+  }
 </script>
 </html>
